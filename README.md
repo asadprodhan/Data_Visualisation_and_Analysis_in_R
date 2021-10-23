@@ -1,7 +1,8 @@
 # **I have a data-set. How can I analyse it in R?**
-<br />
+
 
 ## **Step 1: Install (only once) and Upload the libraries**
+
 
 ```
 # Libraries for data manipulation
@@ -24,6 +25,7 @@ library(multcomp) #  to do multiple comparisons of groups
 library(car) # for leven test
 ```
 
+
 ## **Step 2: Upload your data in R**
 
 ```
@@ -32,12 +34,18 @@ rice <- read.csv('rice.csv', na.strings = "NA")
 rice
 ```
 
+
 ### **Check that your data have been read correctly**
 
 ### **For example, are the variables and factors correctly presented in R?**
 
+
 ```
 str(rice)
+```
+
+
+```
 ## 'data.frame':    72 obs. of  7 variables:
 ##  $ SlNo        : int  1 2 3 4 5 6 7 8 9 10 ...
 ##  $ Variety     : Factor w/ 2 levels "ANU843","wt": 2 2 2 2 2 2 2 2 2 2 ...
@@ -48,17 +56,19 @@ str(rice)
 ##  $ ShootDryMass: int  132 120 108 134 119 125 98 122 114 82 ...
 ```
 
+
 >In this example:
 >
 >Variables are SlNo, Variety, Treatment, Block, PlantNo, RootDryMass, and ShootDryMass
 > 
->Factors are Variety (‘Two levels’ means we have two varieties)
->
->Treatment (‘three levels’ means we have three treatments)
+>Factors are Variety (‘Two levels’ means we have two varieties) and Treatment (‘three levels’ means we have three treatments)
+
 
 ## **Step 3: Visualise your data**
 
+
 ### **Let’s start with the ‘Shoot Dry Mass’ variable**
+
 
 ```
 RiceShootBiomass<-ggplot(data=rice, aes(x=Treatment, y=ShootDryMass, fill=Variety)) +
@@ -74,16 +84,160 @@ RiceShootBiomass
 ```
 
 
+![alt text](https://github.com/asadprodhan/Data_Visualisation_and_Analysis_in_R/blob/main/Figure%201A.png)
 
 
+## **Step 4: Do the statistical analyses**
 
 
+>### First of all, test the dataset for normal distribution and homogeneity of variance
+>### If passed, then ‘parametric analysis’ such as ANOVA can be used. Because, parametric analysis assumes that the data are normally distributed and the variance in the population is equal.
+>### If not passed, the data may be log-transformed and tested again for normal distribution and homogeneity of variance
+>### If still not passed, then ‘non-parametric analysis’ such as ‘kruskal wallis’ can be used. Because,the non-parametric analysis does not assume that the data are normally distributed. Therefore, the non-parametric analysis is also called ‘distribution free analysis’
 
 
+## **Let’s start. Let’s test if the data for ShootDryMass trait are normally distributed Shapiro-Wilk test can be used to test normality**
 
 
+```
+ShootDryMass <- rice$ShootDryMass
+shapiro.test(ShootDryMass)
+```
 
 
+```
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  ShootDryMass
+## W = 0.96627, p-value = 0.05042
+```
+
+
+>### p-value = 0.05042
+>### P-value > 0.05 means normal distribution so the shoot dry mass data are normally distributed
+
+
+## **Test for homogeneity of variances for the ShootDryMass data**
+
+
+```
+leveneTest(ShootDryMass~Variety*Treatment, data = rice)
+```
+
+
+```
+## Levene's Test for Homogeneity of Variance (center = median)
+##       Df F value Pr(>F)
+## group  5  1.6558 0.1577
+##       66
+```
+
+
+>### The p-value is 0.1577. Greater than 0.05. Non-significant.
+>### Therefore, paramatric analysis such as ANOVA should be used for analysing ‘ShoootDryMass’ data
+
+
+```
+shoot.aov <- aov(ShootDryMass~Variety*Treatment, data = rice)
+summary(shoot.aov)
+```
+
+
+```
+##                   Df Sum Sq Mean Sq F value   Pr(>F)    
+## Variety            1  22685   22685   60.95 5.86e-11 ***
+## Treatment          2   7019    3509    9.43  0.00025 ***
+## Variety:Treatment  2  38622   19311   51.89 2.88e-14 ***
+## Residuals         66  24562     372                     
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+
+>### There are significant differences in ShootDryMass 
+>### between varieties 
+>### among treatments
+>### as well as in variety and treatment interaction
+
+
+```
+TukeyHSD(shoot.aov, "Treatment", ordered = TRUE)
+```
+
+
+```
+##   Tukey multiple comparisons of means
+##     95% family-wise confidence level
+##     factor levels have been ordered
+## 
+## Fit: aov(formula = ShootDryMass ~ Variety * Treatment, data = rice)
+## 
+## $Treatment
+##                   diff       lwr      upr     p adj
+## F10-NH4Cl     9.416667 -3.935941 22.76927 0.2162588
+## NH4NO3-NH4Cl 24.000000 10.647393 37.35261 0.0001630
+## NH4NO3-F10   14.583333  1.230726 27.93594 0.0290795
+```
+
+
+>### NH4NO3 Vs NH4Cl is significatly different
+>### NH4NO3 Vs F10 is significatly different
+
+
+## **Step 5: Annotate the graph**
+
+
+```
+labs = tibble(Variety = c("ANU843","ANU843","ANU843","wt","wt","wt"),
+              Treatment = c("F10", "NH4Cl", "NH4NO3", "F10", "NH4Cl", "NH4NO3"),
+              labels = c("a", "b", "c", "d", "e", "f") )
+
+labs
+```
+
+
+```
+## # A tibble: 6 x 3
+##   Variety Treatment labels
+##   <chr>   <chr>     <chr> 
+## 1 ANU843  F10       a     
+## 2 ANU843  NH4Cl     b     
+## 3 ANU843  NH4NO3    c     
+## 4 wt      F10       d     
+## 5 wt      NH4Cl     e     
+## 6 wt      NH4NO3    f
+```
+
+
+```
+labeldat = rice %>%
+  group_by(Variety, Treatment) %>%
+  summarize(ypos = median(ShootDryMass) + 38 ) %>%
+  inner_join(., labs)
+
+ShootBiomass_annot <- RiceShootBiomass +
+  geom_text(data = labeldat, aes(label = labels, y = ypos), 
+          position = position_dodge(width = .75), 
+          show.legend = FALSE )
+
+ShootBiomass_annot
+```
+
+
+![alt text](https://github.com/asadprodhan/Data_Visualisation_and_Analysis_in_R/blob/main/Figure%201_Rice%20Shoot%20Biomass.png)
+
+
+## **Step 6: Save the graph**
+
+
+```
+ggsave("Figure 1_Rice Shoot Biomass.png", 
+       device = "png", 
+       ShootBiomass_annot, 
+       height = 19, width = 18.5, units = 'cm', 
+       dpi = 600)
+```
 
 
 
